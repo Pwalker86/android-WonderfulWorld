@@ -1,14 +1,18 @@
 package com.impwalker.wonderfulworld;
 
+import android.content.Intent;
 import android.os.AsyncTask;
-import android.support.v4.app.Fragment;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
+import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.SimpleAdapter;
+import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -21,14 +25,21 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * A placeholder fragment containing a simple view.
  */
 public class MainActivityFragment extends Fragment {
+  static final String TAG_NAME = "name";
+  static final String TAG_IMAGE = "image";
+  static final String TAG_WIKILINK = "wikipedia";
+  static final String TAG_LOCATION = "location";
+  static final String TAG_REGION = "region";
+  static final String TAG_YEAR_BUILT = "year_built";
 
-  private ArrayAdapter<String> listAdapter;
   private ListView listView;
+  ArrayList<HashMap<String, String>> wonderList;
 
   public MainActivityFragment() {
   }
@@ -37,27 +48,46 @@ public class MainActivityFragment extends Fragment {
   public View onCreateView(LayoutInflater inflater, ViewGroup container,
                            Bundle savedInstanceState) {
     View rootView = inflater.inflate(R.layout.fragment_main, container, false);
+    listView = (ListView) rootView.findViewById(R.id.wonder_list_view);
+    wonderList = new ArrayList<>();
 
-    ArrayList<String> emptyList = new ArrayList<>();
+    listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+      @Override
+      public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        String name = ((TextView) view.findViewById(R.id.wonder_name))
+                          .getText().toString();
+        String wikiLink = wonderList.get(position).get(TAG_WIKILINK);
+        String wikiImage = wonderList.get(position).get(TAG_IMAGE);
+        String location = wonderList.get(position).get(TAG_LOCATION);
+        String region = wonderList.get(position).get(TAG_REGION);
+        String final_location = location + ", " + region;
+        String year_built = wonderList.get(position).get(TAG_YEAR_BUILT);
+//
+        Intent in = new Intent(getActivity(),
+                                  DetailsActivity.class);
+        in.putExtra(TAG_NAME, name);
+        in.putExtra(TAG_WIKILINK, wikiLink);
+        in.putExtra(TAG_LOCATION, final_location);
+        in.putExtra(TAG_YEAR_BUILT, year_built);
+        in.putExtra(TAG_IMAGE, wikiImage);
+        startActivity(in);
+      }
+    });
 
-    listAdapter = new ArrayAdapter<>(getActivity(),R.layout.item_row, emptyList );
 
-    listView = (ListView)  rootView.findViewById(R.id.wonder_list);
-    listView.setAdapter(listAdapter);
     new FetchWondersTask().execute();
     return rootView;
   }
 
-  public class FetchWondersTask extends AsyncTask<Void, Void, String[]> {
+  public class FetchWondersTask extends AsyncTask<Void, Void, Void> {
 
     @Override
-    protected String[] doInBackground(Void... params) {
+    protected Void doInBackground(Void... params) {
       final String LOG_TAG="WONDER_TASK";
 
       HttpURLConnection urlConnection = null;
       BufferedReader reader = null;
 
-      String wonderJsonStr = null;
       try {
         URL url = new URL("http://jsonblob.com/api/56aa8522e4b01190df4c13a2");
 
@@ -95,7 +125,14 @@ public class MainActivityFragment extends Fragment {
           Log.v(LOG_TAG, "buffer was empty");
           return null;
         }
-        wonderJsonStr = buffer.toString();
+
+        String wonderJsonStr = buffer.toString();
+
+        try {
+          parseJson(wonderJsonStr);
+        } catch (JSONException e) {
+          e.printStackTrace();
+        }
 
       } catch (IOException e) {
         Log.e(LOG_TAG, "Error ", e);
@@ -112,38 +149,49 @@ public class MainActivityFragment extends Fragment {
           }
         }
       }
-
-      try{
-        return parseJson(wonderJsonStr);
-      } catch (JSONException e){
-        Log.e(LOG_TAG, e.getMessage(), e);
-        e.printStackTrace();
-      }
-
       return null;
     }
 
-    private String[] parseJson(String wonderJsonStr)
+    private ArrayList parseJson(String wonderJsonStr)
         throws JSONException {
       JSONArray wonderArray = new JSONArray(wonderJsonStr);
-
-      String[] resultStrs = new String[wonderArray.length()];
+//
       for(int i = 0; i < wonderArray.length(); i++) {
+
         JSONObject wonderObject = wonderArray.getJSONObject(i);
-        String name = wonderObject.getString("name");
-        resultStrs[i] = name;
+        String name = wonderObject.getString(TAG_NAME);
+        String imageUrl = wonderObject.getString(TAG_IMAGE);
+        String wikiLink = wonderObject.getString(TAG_WIKILINK);
+        String location = wonderObject.getString(TAG_LOCATION);
+        String region = wonderObject.getString(TAG_REGION);
+        String yearBuilt = wonderObject.getString(TAG_YEAR_BUILT);
+
+        HashMap<String, String> wonder = new HashMap<>();
+
+        wonder.put(TAG_NAME, name);
+        wonder.put(TAG_IMAGE, imageUrl);
+        wonder.put(TAG_WIKILINK, wikiLink);
+        wonder.put(TAG_LOCATION, location);
+        wonder.put(TAG_REGION, region);
+        wonder.put(TAG_YEAR_BUILT, yearBuilt);
+
+        wonderList.add(wonder);
+
       }
-      return resultStrs;
+      return null;
     }
 
     @Override
-    protected void onPostExecute(String[] result) {
-      if (result != null) {
-        listAdapter.clear();
-        for(String wonderStr : result) {
-          listAdapter.add(wonderStr);
-        }
-      }
+    protected void onPostExecute(Void result) {
+      if(android.os.Debug.isDebuggerConnected())
+        android.os.Debug.waitForDebugger();
+        ListAdapter adapter = new SimpleAdapter(
+          getActivity(), wonderList,
+          R.layout.item_row, new String[]{TAG_NAME},
+          new int[]{R.id.wonder_name}
+          );
+
+        listView.setAdapter(adapter);
     }
   }
 }
