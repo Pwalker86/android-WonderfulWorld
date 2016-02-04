@@ -4,5 +4,7 @@
   <string name="wonder_what">What: %1$s</string>
   <string name="wonder_where">Where: %1$s</string>
   <string name="wonder_when">When: %1$s</string>
+  <string name="hello_blank_fragment">Hello blank fragment</string>
+  <string name="title_activity_details">Details</string>
 
 </resources>
